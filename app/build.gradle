@@ -1,0 +1,95 @@
+apply plugin: 'com.android.application'
+apply plugin: 'maven'
+
+android {
+    compileSdkVersion 23
+    buildToolsVersion "24.0.0 rc3"
+
+    defaultConfig {
+        applicationId "io.github.jitinsharma.gradle_multi_artifacts"
+        minSdkVersion 15
+        targetSdkVersion 23
+        versionCode 1
+        versionName "1.0"
+    }
+    productFlavors {
+        blue {
+            applicationId "io.github.jitinsharma.gradle_multi_artifacts.blue"
+        }
+        red {
+            applicationId "io.github.jitinsharma.gradle_multi_artifacts.red"
+        }
+        green {
+            applicationId "io.github.jitinsharma.gradle_multi_artifacts.green"
+        }
+    }
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        staging {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    testCompile 'junit:junit:4.12'
+    compile 'com.android.support:appcompat-v7:23.3.0'
+}
+
+/**
+ * Defining artifacts. Checks whether .apks exists or not.
+ * Each build type configuration (debug,staging,release) has a classifier added to it
+ * and then added to the archives
+ */
+artifacts {
+    if (new File('app/build/outputs/apk').exists()) {
+        new File('app/build/outputs/apk').eachFile() { file ->
+            if (file.toString().contains("debug") && !file.toString().contains("unaligned")) {
+                archives file: file, classifier: 'debug'
+            } else if (file.toString().contains("staging")) {
+                archives file: file, classifier: 'staging'
+            } else if (file.toString().contains("release")) {
+                archives file: file, classifier: 'release'
+            }
+        }
+    }
+}
+
+// Define maven repository path
+def localRepoPath = "file://D:/m2repo"
+
+uploadArchives {
+    repositories.mavenDeployer
+            {
+                repository(url: localRepoPath)
+                /**
+                 * Add filters for every product flavor
+                 */
+                addFilter('blue') { artifact, file ->
+                    artifact.name.contains("blue")
+                }
+                addFilter('red') { artifact, file ->
+                    artifact.name.contains("red")
+                }
+                addFilter('green') { artifact, file ->
+                    artifact.name.contains("green")
+                }
+                def flavors = ['blue', 'red', 'green']
+                /**
+                 * Generate pom for all artifacts. Artifact Id is according to product flavor.
+                 * Each artifact will produce three .apks with classifier tags.
+                 */
+                for (String flavor : flavors) {
+                    pom(flavor).artifactId = "application_" + flavor
+                    pom(flavor).groupId = 'io.github.jitinsharma'
+                    pom(flavor).version = android.defaultConfig.versionName
+                }
+            }
+}
